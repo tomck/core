@@ -120,6 +120,13 @@ def test_download():
                 'level': 'project',
                 '_id': test_data.pid
             }
+        ],
+        'filters': [
+            {
+                'tags': {
+                    '+': ['incomplete']
+                }
+            }
         ]
     }
     payload = json.dumps(payload)
