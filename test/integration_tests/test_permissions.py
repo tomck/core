@@ -16,6 +16,20 @@ test_data = type('',(object,),{})()
 base_url = 'https://localhost:8080/api'
 session = None
 
+def _create_user(_id):
+    payload = {
+        '_id': _id,
+        'firstname': 'New',
+        'lastname': 'User',
+    }
+    payload = json.dumps(payload)
+    r = session.post(base_url + '/users?user=test@user.com&root=true', data=payload)
+    assert r.ok
+
+def _delete_user(_id):
+    r = session.delete(base_url + '/users/' + _id + '?user=test@user.com&root=true')
+    assert r.ok
+
 def _build_url(_id=None, requestor=adm_user, site='local'):
     if _id is None:
         url = test_data.proj_url + '?user=' + requestor
@@ -53,12 +67,16 @@ def setup_db():
     assert r.ok
     log.debug('pid = \'{}\''.format(test_data.pid))
     test_data.proj_url = base_url + '/projects/{}/permissions'.format(test_data.pid)
+    _create_user(user)
+    _create_user(user1)
 
 def teardown_db():
     r = session.delete(base_url + '/projects/' + test_data.pid)
     assert r.ok
     r = session.delete(base_url + '/groups/' + test_data.group_id)
     assert r.ok
+    _delete_user(user)
+    _delete_user(user1)
 
 @with_setup(setup_db, teardown_db)
 def test_permissions():
@@ -113,3 +131,11 @@ def test_permissions():
     assert r.ok
     r = session.get(url_get_1)
     assert r.status_code == 404
+    # non existing user
+    data = {
+        '_id': 'no@user.com',
+        'site': 'local',
+        'access': 'ro'
+    }
+    r = session.post(url_post, data = json.dumps(data))
+    assert r.status_code == 400
