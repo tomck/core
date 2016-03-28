@@ -13,7 +13,7 @@
         "archived": {},
         "label": {},
         "tags": {},
-        "metadata": {},
+        "info": {},
 
         "group": {"type": "string"}
     },

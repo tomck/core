@@ -224,6 +224,53 @@ def upgrade_to_7():
             }
         )
 
+def upgrade_to_8():
+    """
+    scitran/core issue #189 - Data Model v2
+
+    Field `metadata` renamed to `info`
+    Field `file.instrument` renamed to `file.modality`
+    Acquisition fields `instrument` and `measurement` removed
+    """
+
+    def dm_v2_updates(cont_list, cont_name):
+        for container in cont_list:
+
+            query = {'_id': container['_id']}
+            update = {'$rename': {'metadata': 'info'}}
+
+            if cont_name == 'sessions':
+                update['$rename'].update({'subject.metadata': 'subject.info'})
+
+            if cont_name == 'acquisitions':
+                update['$unset'] = {'instrument': '', 'measurements': ''}
+
+            # From mongo docs: '$rename does not work if these fields are in array elements.'
+            files = container.get('files', None)
+            if files is not None:
+                updated_files = []
+                for file in files:
+                    if file.get('metadata', None) is not None:
+                        file['info'] = file.pop('metadata')
+                    if file.get('instrument', None) is not None:
+                        file['modality'] = file.pop('instrument')
+                    updated_files.append(file)
+                update['$set'] = {'files': updated_files}
+
+            result = config.db[cont_name].update_one(query, update)
+
+    query = {'$or':[{'files': { '$exists': True}},
+                    {'subject': { '$exists': True}},
+                    {'metadata': { '$exists': True}}]}
+
+    dm_v2_updates(config.db.collections.find(query), 'collections')
+    dm_v2_updates(config.db.projects.find(query), 'projects')
+    dm_v2_updates(config.db.sessions.find(query), 'sessions')
+
+    query['$or'].append({'instrument': { '$exists': True}})
+    query['$or'].append({'measurement': { '$exists': True}})
+    dm_v2_updates(config.db.acquisitions.find(query), 'acquisitions')
+
 def upgrade_schema():
     """
     Upgrades db to the current schema version
@@ -247,6 +294,9 @@ def upgrade_schema():
             upgrade_to_6()
         if db_version < 7:
             upgrade_to_7()
+        if db_version < 8:
+            upgrade_to_8()
+
     except Exception as e:
         logging.exception('Incremental upgrade of db failed')
         sys.exit(1)

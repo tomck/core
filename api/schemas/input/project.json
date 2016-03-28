@@ -7,7 +7,7 @@
         "public": {},
         "archived": {},
         "label": {},
-        "metadata": {},
+        "info": {},
 
         "group": {"type": "string"}
     },

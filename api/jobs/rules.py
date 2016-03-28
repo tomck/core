@@ -17,7 +17,6 @@ log = config.log
 #       ["file.type",             "dicom"     ] # Match the file's type
 #       ["file.name",             "*.dcm"     ] # Match a shell glob for the file name
 #       ["file.measurements",     "diffusion" ] # Match any of the file's measurements
-#       ["container.measurement", "diffusion" ] # Match the container's primary measurment
 #       ["container.has-type",    "bvec"      ] # Match the container having any file (including this one) with this type
 #   ]
 #
@@ -34,7 +33,6 @@ MATCH_TYPES = [
     'file.type',
     'file.name',
     'file.measurements',
-    'container.measurement',
     'container.has-type'
 ]
 
@@ -72,10 +70,6 @@ def eval_match(match_type, match_param, file_, container):
         except KeyError:
             _log_file_key_error(file_, container, 'has no measurements key')
             return False
-
-    # Match the container's primary measurment
-    elif match_type == 'container.measurement':
-        return container['measurement'] == match_param
 
     # Match the container having any file (including this one) with this type
     elif match_type == 'container.has-type':

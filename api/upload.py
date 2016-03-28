@@ -105,9 +105,9 @@ def process_upload(request, strategy, container_type=None, id=None, origin=None,
         field.mimetype = util.guess_mimetype(field.filename) # TODO: does not honor metadata's mime type if any
         field.modified = timestamp
 
-        # create a file-info map commonly used elsewhere in the codebase.
+        # create a file-attribute map commonly used elsewhere in the codebase.
         # Stands in for a dedicated object... for now.
-        info = {
+        file_attrs = {
             'name':	 field.filename,
             'modified': field.modified, #
             'size':	 field.size,
@@ -116,13 +116,13 @@ def process_upload(request, strategy, container_type=None, id=None, origin=None,
             'origin': origin,
 
             'type': None,
-            'instrument': None,
+            'modality': None,
             'measurements': [],
             'tags': [],
-            'metadata': {}
+            'info': {}
         }
 
-        placer.process_file_field(field, info)
+        placer.process_file_field(field, file_attrs)
 
     # Respond either with Server-Sent Events or a standard json map
     if placer.sse and not response:
@@ -148,7 +148,7 @@ class Upload(base.RequestHandler):
             except files.FileStoreException as e:
                 self.abort(400, str(e))
             now = datetime.datetime.utcnow()
-            fileinfo = dict(
+            file_attrs = dict(
                 name=file_store.filename,
                 created=now,
                 modified=now,
@@ -157,21 +157,22 @@ class Upload(base.RequestHandler):
                 mimetype=util.guess_mimetype(file_store.filename),
                 tags=file_store.tags,
                 metadata=file_store.metadata.get('file', {}).get('metadata', {}),
+                info=file_store.info,
                 origin=self.origin
             )
 
             target, file_metadata = hierarchy.create_container_hierarchy(file_store.metadata)
-            fileinfo.update(file_metadata)
+            file_attrs.update(file_metadata)
             f = target.find(file_store.filename)
-            target_path = os.path.join(config.get_item('persistent', 'data_path'), util.path_from_hash(fileinfo['hash']))
+            target_path = os.path.join(config.get_item('persistent', 'data_path'), util.path_from_hash(file_attrs['hash']))
             if not f:
                 file_store.move_file(target_path)
-                target.add_file(fileinfo)
-                rules.create_jobs(config.db, target.container, target.level[:-1], fileinfo)
+                target.add_file(file_attrs)
+                rules.create_jobs(config.db, target.container, target.level[:-1], file_attrs)
             elif not files.identical(file_store.hash, file_store.path, f['hash'], util.path_from_hash(f['hash'])):
                 file_store.move_file(target_path)
-                target.update_file(fileinfo)
-                rules.create_jobs(config.db, target.container, target.level[:-1], fileinfo)
+                target.update_file(file_attrs)
+                rules.create_jobs(config.db, target.container, target.level[:-1], file_attrs)
             throughput = file_store.size / file_store.duration.total_seconds()
             log.info('Received    %s [%s, %s/s] from %s' % (file_store.filename, util.hrsize(file_store.size), util.hrsize(throughput), self.request.client_addr))
 

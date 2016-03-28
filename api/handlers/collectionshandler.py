@@ -20,7 +20,7 @@ class CollectionsHandler(ContainerHandler):
         'storage': containerstorage.ContainerStorage('collections', use_object_id=True),
         'storage_schema_file': 'collection.json',
         'payload_schema_file': 'collection.json',
-        'list_projection': {'metadata': 0}
+        'list_projection': {'info': 0}
     }
 
     def post(self, **kwargs):

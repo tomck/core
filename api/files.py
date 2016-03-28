@@ -178,6 +178,7 @@ class FileStore(object):
         self.received_file = form['file'].file
         self.filename = os.path.basename(form['file'].filename)
         self.tags = json.loads(form['tags'].file.getvalue()) if 'tags' in form else None
+        self.info = json.loads(form['info'].file.getvalue()) if 'info' in form else None
         self.metadata = json.loads(form['metadata'].file.getvalue()) if 'metadata' in form else None
 
     def _save_body_file(self, dest_path, filename, hash_alg):
@@ -188,6 +189,7 @@ class FileStore(object):
         for chunk in iter(lambda: self.body.read(2**20), ''):
             self.received_file.write(chunk)
         self.tags = None
+        self.info = None
         self.metadata = None
 
     def move_file(self, target_path):

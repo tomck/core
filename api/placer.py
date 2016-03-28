@@ -46,7 +46,7 @@ class Placer(object):
         """
         raise NotImplementedError()
 
-    def process_file_field(self, field, info):
+    def process_file_field(self, field, file_attrs):
         """"
         Process a single file field.
         """
@@ -72,7 +72,7 @@ class Placer(object):
         if self.metadata == None:
             raise Exception('Metadata required')
 
-    def save_file(self, field, info):
+    def save_file(self, field, file_attrs):
         """
         Helper function that moves a file saved via a form field into our CAS.
         May trigger jobs, if applicable, so this should only be called once we're ready for that.
@@ -84,10 +84,10 @@ class Placer(object):
         files.move_form_file_field_into_cas(field)
 
         # Update the DB
-        hierarchy.upsert_fileinfo(self.container_type, self.id, info)
+        hierarchy.upsert_fileinfo(self.container_type, self.id, file_attrs)
 
         # Queue any jobs as a result of this upload
-        rules.create_jobs(config.db, self.container, self.container_type, info)
+        rules.create_jobs(config.db, self.container, self.container_type, file_attrs)
 
 
 class TargetedPlacer(Placer):
@@ -103,9 +103,9 @@ class TargetedPlacer(Placer):
         validators.validate_data(self.metadata, 'file.json', 'input', 'POST', optional=True)
         self.saved = []
 
-    def process_file_field(self, field, info):
-        self.save_file(field, info)
-        self.saved.append(info)
+    def process_file_field(self, field, file_attrs):
+        self.save_file(field, file_attrs)
+        self.saved.append(file_attrs)
 
     def finalize(self):
         return self.saved
@@ -140,7 +140,7 @@ class UIDPlacer(Placer):
 
         self.saved = []
 
-    def process_file_field(self, field, info):
+    def process_file_field(self, field, file_attrs):
 
         # For the file, given self.targets, choose a target
 
@@ -156,10 +156,10 @@ class UIDPlacer(Placer):
         self.id             = container._id
         self.container      = container.container
 
-        info.update(r_metadata)
+        file_attrs.update(r_metadata)
 
-        self.save_file(field, info)
-        self.saved.append(info)
+        self.save_file(field, file_attrs)
+        self.saved.append(file_attrs)
 
     def finalize(self):
         return self.saved
@@ -190,7 +190,7 @@ class EnginePlacer(Placer):
 
         # Could avoid loops in process_file_field by setting up the
 
-    def process_file_field(self, field, info):
+    def process_file_field(self, field, file_attrs):
         if self.metadata is not None:
             # OPPORTUNITY: hard-coded container levels will need to go away soon
             # Engine shouldn't know about container names; maybe parent contexts?
@@ -198,16 +198,16 @@ class EnginePlacer(Placer):
             file_mds = self.metadata.get('acquisition', {}).get('files', [])
 
             for file_md in file_mds:
-                if file_md['name'] == info['name']:
+                if file_md['name'] == file_attrs['name']:
                     break
             else:
                 file_md = {}
 
-            for x in ('type', 'instrument', 'measurements', 'tags', 'metadata'):
-                info[x] = file_md.get(x) or info[x]
+            for x in ('type', 'modality', 'measurements', 'tags', 'info'):
+                file_attrs[x] = file_md.get(x) or file_attrs[x]
 
-        self.save_file(field, info)
-        self.saved.append(info)
+        self.save_file(field, file_attrs)
+        self.saved.append(file_attrs)
 
     def finalize(self):
         # Updating various properties of the hierarchy; currently assumes acquisitions; might need fixing for other levels.
@@ -376,10 +376,10 @@ class PackfilePlacer(Placer):
             'modified': self.timestamp
         })
 
-        # Similarly, create the info map that is consumed by helper funcs. Clear duplication :(
+        # Similarly, create the attributes map that is consumed by helper funcs. Clear duplication :(
         # This could be coalesced into a single map thrown on file fields, for example.
         # Used in the API return.
-        cgi_info = {
+        cgi_attrs = {
             'name':	 cgi_field.filename,
             'modified': cgi_field.modified,
             'size':	 cgi_field.size,
@@ -388,10 +388,10 @@ class PackfilePlacer(Placer):
             'type': self.metadata['packfile']['type'],
 
             # OPPORTUNITY: packfile endpoint could be extended someday to take additional metadata.
-            'instrument': None,
+            'modality': None,
             'measurements': [],
             'tags': [],
-            'metadata': {},
+            'info': {},
 
             # Manually add the file orign to the packfile metadata.
             # This is set by upload.process_upload on each file, but we're not storing those.
@@ -457,7 +457,7 @@ class PackfilePlacer(Placer):
         self.id			 = str(acquisition['_id'])
         self.container	  = acquisition
 
-        self.save_file(cgi_field, cgi_info)
+        self.save_file(cgi_field, cgi_attrs)
 
         # Delete token
         token  = self.context['token']
@@ -466,7 +466,7 @@ class PackfilePlacer(Placer):
         result = {
             'acquisition_id': str(acquisition['_id']),
             'session_id':	 str(session['_id']),
-            'info': cgi_info,
+            'info': cgi_attrs
         }
 
         # Report result

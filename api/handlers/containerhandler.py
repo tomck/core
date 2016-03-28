@@ -53,7 +53,7 @@ class ContainerHandler(base.RequestHandler):
             'parent_storage': containerstorage.ContainerStorage('groups', use_object_id=use_object_id['groups']),
             'storage_schema_file': 'project.json',
             'payload_schema_file': 'project.json',
-            'list_projection': {'metadata': 0},
+            'list_projection': {'info': 0},
             'propagated_properties': ['archived', 'public'],
             'children_cont': 'sessions'
         },
@@ -63,7 +63,7 @@ class ContainerHandler(base.RequestHandler):
             'parent_storage': containerstorage.ContainerStorage('projects', use_object_id=use_object_id['projects']),
             'storage_schema_file': 'session.json',
             'payload_schema_file': 'session.json',
-            'list_projection': {'metadata': 0},
+            'list_projection': {'info': 0},
             'propagated_properties': ['archived'],
             'children_cont': 'acquisitions'
         },
@@ -73,7 +73,7 @@ class ContainerHandler(base.RequestHandler):
             'parent_storage': containerstorage.ContainerStorage('sessions', use_object_id=use_object_id['sessions']),
             'storage_schema_file': 'acquisition.json',
             'payload_schema_file': 'acquisition.json',
-            'list_projection': {'metadata': 0}
+            'list_projection': {'info': 0}
         }
     }
 
@@ -186,14 +186,11 @@ class ContainerHandler(base.RequestHandler):
         if results is None:
             self.abort(404, 'Element not found in container {} {}'.format(storage.cont_name, _id))
         # return only permissions of the current user
-        self._filter_all_permissions(results, self.uid, self.user_site)
+        if not self.superuser_request:
+            self._filter_permissions(result, self.uid, self.user_site)
         # the "count" flag add a count for each container returned
         if self.is_true('counts'):
             self._add_results_counts(results, cont_name)
-        # the "measurements" flag applies only to query for sessions
-        # and add a list of the measurements in the child acquisitions
-        if cont_name == 'sessions' and self.is_true('measurements'):
-            self._add_session_measurements(results)
         if self.debug:
             debuginfo.add_debuginfo(self, cont_name, results)
 
@@ -219,15 +216,6 @@ class ContainerHandler(base.RequestHandler):
         counts = {elem['_id']: elem['count'] for elem in counts}
         for elem in results:
             elem[dbc_name[:-1] + '_count'] = counts.get(elem['_id'], 0)
-
-    def _add_session_measurements(self, results):
-        session_measurements = config.db.acquisitions.aggregate([
-            {'$match': {'session': {'$in': [sess['_id'] for sess in results]}}},
-            {'$group': {'_id': '$session', 'measurements': {'$addToSet': '$measurement'}}}
-            ])
-        session_measurements = {sess['_id']: sess['measurements'] for sess in session_measurements}
-        for sess in results:
-            sess['measurements'] = session_measurements.get(sess['_id'], None)
 
     def get_all_for_user(self, cont_name, uid):
         self.config = self.container_handler_configurations[cont_name]

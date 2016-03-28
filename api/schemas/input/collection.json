@@ -6,7 +6,7 @@
     "properties": {
         "public": {},
         "label": {},
-        "metadata": {},
+        "info": {},
 
         "curator": {"type": "string"}
     },

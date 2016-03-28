@@ -10,7 +10,7 @@
     "sex":              { "enum": ["male", "female", "other", null] },
     "code":             { "type": "string", "maxLength": 64 },
     "tags":             { "type": "array", "items": {"type": "string"} },
-    "metadata":         { "type": "object" },
+    "info":         { "type": "object" },
     "age":              { "type": ["number", "null"] }
   },
   "additionalProperties": false

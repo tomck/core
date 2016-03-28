@@ -5,7 +5,7 @@
     "name":           { "type": "string" },
     "type":           { "type": "string" },
     "mimetype":       { "type": "string" },
-    "instrument":     { "type": "string" },
+    "modality":       { "type": "string" },
     "measurements": {
       "items": { "type": "string"},
       "type": "array",
@@ -16,7 +16,7 @@
       "type": "array",
       "uniqueItems": true
     },
-    "metadata": {
+    "info": {
       "type": "object"
     }
   },
