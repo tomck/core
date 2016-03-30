@@ -182,3 +182,21 @@ class StringListStorage(ListStorage):
         result = self.dbc.find_one(query, projection)
         if result and result.get(self.list_name):
             return result.get(self.list_name)[0]
+
+
+class AnalysesStorage(ListStorage):
+
+    def get_fileinfo(self, _id, analysis_id, filename = None):
+        _id = bson.ObjectId(_id)
+        query = [
+            {'$match': {'_id' : _id}},
+            {'$unwind': '$' + self.list_name},
+            {'$match': {self.list_name+ '._id' : analysis_id}},
+            {'$unwind': '$' + self.list_name + '.files'}
+        ]
+        if filename:
+            query.append(
+                {'$match': {self.list_name + '.files.name' : filename}}
+            )
+        log.error(query)
+        return [cont['analyses'] for cont in self.dbc.aggregate(query)]
