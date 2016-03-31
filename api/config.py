@@ -125,7 +125,8 @@ expected_input_schemas = set([
     'tag.json',
     'enginemetadata.json',
     'labelupload.json',
-    'uidupload.json'
+    'uidupload.json',
+    'search.json'
 ])
 mongo_schemas = set()
 input_schemas = set()
@@ -152,7 +153,7 @@ def create_or_recreate_ttl_index(coll_name, index_name, ttl):
         index_list = db[coll_name].index_information()
         if index_list:
             for index in index_list:
-                # search for index by given name 
+                # search for index by given name
                 # example: "timestamp_1": {"key": [["timestamp", 1]], ...}
                 if index_list[index]['key'][0][0] == index_name:
                     if index_list[index].get('expireAfterSeconds', None) != ttl:
