@@ -103,7 +103,20 @@ class SearchHandler(base.RequestHandler):
         size = self.get_param('size')
         min_score = self.get_param('min_score', 0.5)
         body = self.request.json_body
-        query = es_query(body, 'files', min_score)
+        collection = self.get_param('collection')
+        additional_filter = None
+        if collection:
+            collection = config.db.collections.find_one({'label': collection})
+            if not collection:
+                self.abort(404, 'collection not found')
+            acquisitions = config.db.acquisitions.find({'collections': collection['_id']})
+            acq_ids = [str(a['_id']) for a in acquisitions]
+            additional_filter = {
+                'terms': {
+                    'container_id': acq_ids
+                }
+            }
+        query = es_query(body, 'files', min_score, additional_filter)
         try:
             es_results = config.es.search(index='scitran', body=query, size=size or 10)
             ## elastic search results are wrapped in subkey ['hits']['hits']
@@ -113,8 +126,9 @@ class SearchHandler(base.RequestHandler):
                 # extract the source of the result
                 result = result['_source']
                 # add to the result the container hierarchy references
-                container = result.pop('container')
+                cont_id = bson.objectid.ObjectId(result.pop('container_id'))
                 cont_name = result['container_name']
+                container = config.db[cont_name].find_one({'_id': cont_id})
                 result[cont_name[:-1]] = container
                 while parent_container.get(cont_name):
                     parent_cont_name = parent_container[cont_name]
@@ -123,6 +137,8 @@ class SearchHandler(base.RequestHandler):
                     container.pop('permissions')
                     result[parent_cont_name[:-1]] = container
                     cont_name = parent_cont_name
+                if collection:
+                    result['collection'] = collection
                 results.append(result)
         except elasticsearch.exceptions.ConnectionError as e:
             self.abort(503, 'elasticsearch is not available')
