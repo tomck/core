@@ -80,6 +80,30 @@ class ContainerHandler(base.RequestHandler):
     def __init__(self, request=None, response=None):
         super(ContainerHandler, self).__init__(request, response)
 
+    def _fill_required_fields(self, cont, cont_name):
+        """
+        Fills in any missing container fields required for GET requests
+        """
+
+        base_cont = {
+            '_id':          None,
+            'created':      None,
+            'modified':     None,
+            'views':        None,
+            'downloads':    None,
+            'notes':        [],
+            'files':        [],
+            'analyses':     [],
+            'permissions':  [],
+            'tags':         [],
+            'info':         {}
+        }
+        base_cont.update(cont)
+        if cont_name == 'sessions':
+            if base_cont.get('subject', None) is None:
+                base_cont['subject'] = {}
+        return base_cont
+
     def get(self, cont_name, **kwargs):
         _id = kwargs.pop('cid')
         self.config = self.container_handler_configurations[cont_name]
@@ -103,7 +127,7 @@ class ContainerHandler(base.RequestHandler):
         if self.debug:
             debuginfo.add_debuginfo(self, cont_name, result)
 
-        return self.handle_origin(result)
+        return self._fill_required_fields(self.handle_origin(result), cont_name)
 
     def handle_origin(self, result):
         """
@@ -187,17 +211,20 @@ class ContainerHandler(base.RequestHandler):
             self.abort(404, 'Element not found in container {} {}'.format(storage.cont_name, _id))
         # return only permissions of the current user
         if not self.superuser_request:
-            self._filter_permissions(result, self.uid, self.user_site)
+            self._filter_all_permissions(results, self.uid, self.user_site)
         # the "count" flag add a count for each container returned
         if self.is_true('counts'):
             self._add_results_counts(results, cont_name)
         if self.debug:
             debuginfo.add_debuginfo(self, cont_name, results)
 
+        modified_results = []
         for result in results:
-            result = self.handle_origin(result)
+            log.debug('Wowza')
+            result = self._fill_required_fields(self.handle_origin(result), cont_name)
+            modified_results.append(result)
 
-        return results
+        return modified_results
 
     def _filter_all_permissions(self, results, uid, site):
         for result in results:
