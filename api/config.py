@@ -5,6 +5,7 @@ import logging
 import pymongo
 import datetime
 import elasticsearch
+from jinja2 import Environment, PackageLoader
 
 
 logging.basicConfig(
@@ -146,6 +147,8 @@ for schema_filepath in glob.glob(schema_path + '/input/*.json'):
         pass
 
 assert input_schemas == expected_input_schemas, '{} is different from {}'.format(input_schemas, expected_input_schemas)
+
+jinja_env = Environment(loader=PackageLoader('api', 'schemas')) 
 
 def create_or_recreate_ttl_index(coll_name, index_name, ttl):
     if coll_name in db.collection_names():

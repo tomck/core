@@ -314,6 +314,7 @@ class RequestHandler(webapp2.RequestHandler):
                 'validator': detail.validator,
                 'validator_value': detail.validator_value,
             }
+        log.error(detail)
         log.warning(str(self.uid) + ' ' + str(code) + ' ' + str(detail))
         webapp2.abort(code, detail=detail, **kwargs)
 

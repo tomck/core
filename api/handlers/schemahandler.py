@@ -1,6 +1,7 @@
 import os
 import json
 import datetime
+import jinja2
 
 from .. import base
 from .. import config
@@ -13,9 +14,8 @@ class SchemaHandler(base.RequestHandler):
         super(SchemaHandler, self).__init__(request, response)
 
     def get(self, schema, **kwargs):
-        schema_path = os.path.join(config.get_item('persistent', 'schema_path'), schema)
-        try:
-            with open(schema_path, 'ru') as f:
-                return json.load(f)
-        except IOError as e:
-            self.abort(404, str(e))
+
+        log.debug('Attempting to serve jinja templated json schema file {}'.format(schema))
+
+        template = config.jinja_env.get_template(schema)
+        return json.loads(str(template.render()))
