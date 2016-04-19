@@ -1,7 +1,7 @@
 import copy
 
 from . import (
-    es_query, add_filter_from_list, merge_input_queries
+    es_query, add_filter_from_list, add_filter
 )
 from .. import config
 
@@ -26,6 +26,7 @@ querygraph = {
         'children': ['acquisitions']
     }
 }
+_min_score = 1
 
 class SearchContainer(object):
 
@@ -50,7 +51,7 @@ class SearchContainer(object):
             return self.results
 
     def _exec_query(self, query):
-        q = es_query(query, self.cont_name, 1)
+        q = es_query(query, self.cont_name, _min_score)
         results = config.es.search(
             index='scitran',
             body=q,
@@ -81,9 +82,6 @@ class SearchContainer(object):
             self.results = updated_results
         else:
             self.query = add_filter_from_list(self.query, filter_on_field, list_ids)
-            # should_queries = [{'match': {filter_on_field: _id}} for _id in list_ids]
-            # must_queries = None if self.query is None else [self.query]
-            # self.query =  merge_input_queries(self.query, es_filter)
             self.results = self._exec_query(self.query)
 
     def _to_set(self, value_or_list):
@@ -104,7 +102,7 @@ class SearchContainer(object):
         for t in self.child_targets:
             log.error(self.cont_name)
             results = t.get_results(self.cont_name, self.results)
-            final_results[t.name] = results.values()
+            final_results[t.name] = final_results.get(t.name, []) + results.values()
         log.error(final_results)
         return final_results
 
@@ -115,27 +113,38 @@ class TargetProperty(object):
         self.name = name
         self.query = query
 
-    def get_results(self, parent_name, parent_results):
-        if parent_results is None:
-            return self._exec_query(self.query)
-        parent_ids = parent_results.keys()
-
-        #should_queries = [{'match': {'container_id': pid}} for pid in parent_ids]
-        must_queries = [{'match':  {'container_name': parent_name}}]
-        if self.query is not None:
-            must_queries.append(self.query)
-        self.query = merge_input_queries(must_queries)
-        self.query = add_filter_from_list(self.query, 'container_id', parent_ids)
+    def _get_results(self, parent_name, parent_results):
+        if self.query is None:
+            self.query = {"match_all": {}}
+        self.query = add_filter(self.query, 'container_name', parent_name)
+        if parent_results is not None:
+            parent_ids = parent_results.keys()
+            self.query = add_filter_from_list(self.query, 'container_id', parent_ids)
         return self._exec_query(self.query)
 
+    def get_results(self, parent_name, parent_results):
+        return self._get_results(parent_name, parent_results)
+
     def _exec_query(self, query):
-        q = es_query(query, self.name, 1)
+        q = es_query(query, self.name, _min_score)
         results = config.es.search(
             index='scitran',
             body=q,
             size=10000
         )['hits']['hits']
         return {r['_id']: r for r in results}
+
+
+class TargetInAnalysis(TargetProperty):
+
+    def __init__(self, name, query, analyses_query):
+        self.target_analysys = TargetProperty('analyses', analyses_query)
+        self.name = name
+        self.query = query
+
+    def get_results(self, parent_name, parent_results):
+        analysis_list = self.target_analysys.get_results(parent_name, parent_results)
+        return self._get_results('analyses', analysis_list)
 
 
 class PreparedSearch(object):
@@ -158,14 +167,20 @@ class PreparedSearch(object):
     def _get_targets(self, path):
         path_parts = path.split('/')
         query = self.queries.get(path_parts[-1])
-        if path_parts[-1] in ['files', 'notes']:
-            target = TargetProperty(path_parts[-1], query)
-            if len(path_parts) == 1:
+        if path_parts[-1] in ['files', 'notes', 'analyses']:
+            if len(path_parts) >= 2 and path_parts[-2] == 'analyses':
+                min_length = 2
+                analyses_query = self.queries.get('analyses')
+                target = TargetInAnalysis(path_parts[-1], query, analyses_query)
+            else:
+                min_length = 1
+                target = TargetProperty(path_parts[-1], query)
+            if len(path_parts) == min_length:
                 return {
                     c: [copy.deepcopy(target)] for c in self.containers
                 }
             else:
-                return {path_parts[-2]: [target]}
+                return {path_parts[-min_length-1]: [target]}
         else:
             return {path_parts[-1]: [path_parts[-1]]}
 
