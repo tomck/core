@@ -613,6 +613,8 @@ class AnalysesHandler(ListHandler):
 
         permchecker(noop)('POST', _id=_id)
         payload = upload.process_upload(self.request, upload.Strategy.analysis, origin=self.origin)
+        payload['created'] = datetime.datetime.utcnow()
+        payload['user'] = payload.get('user', self.uid)
         result = keycheck(mongo_validator(storage.exec_op))('POST', _id=_id, payload=payload)
         if result.modified_count == 1:
             return {'_id': payload['_id']}
@@ -683,3 +685,32 @@ class AnalysesHandler(ListHandler):
         self.response.app_iter = download.archivestream(ticket)
         self.response.headers['Content-Type'] = 'application/octet-stream'
         self.response.headers['Content-Disposition'] = 'attachment; filename=' + str(ticket['filename'])
+
+    def delete_note(self, cont_name, list_name, **kwargs):
+        _id = kwargs.pop('cid')
+        analysis_id = kwargs.pop('_id')
+        container, permchecker, storage, _, _, _ = self._initialize_request(cont_name, list_name, _id)
+        note_id = kwargs.get('note_id')
+        permchecker(noop)('DELETE', _id=_id)
+        result = storage.delete_note(_id=_id, analysis_id=analysis_id, note_id=note_id)
+        if result.modified_count == 1:
+            return {'modified':result.modified_count}
+        else:
+            self.abort(404, 'Element not removed from list {} of container {} {}'.format(storage.list_name, storage.cont_name, _id))
+
+    def add_note(self, cont_name, list_name, **kwargs):
+        _id = kwargs.pop('cid')
+        analysis_id = kwargs.get('_id')
+        container, permchecker, storage, mongo_validator, input_validator, keycheck = self._initialize_request(cont_name, list_name, _id)
+        payload = self.request.json_body
+        input_validator(payload, 'POST')
+        payload['_id'] = str(bson.objectid.ObjectId())
+        payload['user'] = payload.get('user', self.uid)
+        payload['created'] = datetime.datetime.utcnow()
+        permchecker(noop)('POST', _id=_id)
+        result = storage.add_note(_id=_id, analysis_id=analysis_id, payload=payload)
+        if result.modified_count == 1:
+            return {'modified':result.modified_count}
+        else:
+            self.abort(404, 'Element not added in list {} of container {} {}'.format(storage.list_name, storage.cont_name, _id))
+
