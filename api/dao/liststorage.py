@@ -200,3 +200,31 @@ class AnalysesStorage(ListStorage):
             )
         log.error(query)
         return [cont['analyses'] for cont in self.dbc.aggregate(query)]
+
+    def add_note(self, _id, analysis_id, payload):
+        _id = bson.ObjectId(_id)
+        query = {
+            '_id': _id,
+            'analyses._id': analysis_id
+        }
+        update = {
+            '$push': {
+                'analyses.$.notes': payload
+            }
+        }
+        return self.dbc.update_one(query, update)
+
+    def delete_note(self, _id, analysis_id, note_id):
+        _id = bson.ObjectId(_id)
+        query = {
+            '_id': _id,
+            'analyses._id': analysis_id
+        }
+        update = {
+            '$pull': {
+                'analyses.$.notes': {
+                    '_id': note_id
+                }
+            }
+        }
+        return self.dbc.update_one(query, update)

@@ -277,6 +277,12 @@ routes = [
     webapp2.Route(_format(r'/api/<cont_name:{cont_name_re}>/<cid:{cid_re}>/<list_name:analyses>/<_id:{cid_re}>/files/<name:{filename_re}>'),
                                                                                       listhandler.AnalysesHandler,
                                                                                       handler_method='download', name='analysis_single_file'),
+    webapp2.Route(_format(r'/api/<cont_name:{cont_name_re}>/<cid:{cid_re}>/<list_name:analyses>/<_id:{cid_re}>/notes'),
+                                                                                      listhandler.AnalysesHandler, handler_method='add_note',
+                                                                                      methods=['POST'], name='analysis_add_note'),
+    webapp2.Route(_format(r'/api/<cont_name:{cont_name_re}>/<cid:{cid_re}>/<list_name:analyses>/<_id:{cid_re}>/notes/<note_id:{cid_re}>'),
+                                                                                      listhandler.AnalysesHandler, handler_method='delete_note',
+                                                                                      methods=['DELETE'], name='analysis_delete_note'),
 ]
 
 def dispatcher(router, request, response):

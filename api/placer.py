@@ -494,7 +494,11 @@ class AnalysisPlacer(Placer):
         # we are going to merge the "hard" infos from the processed upload
         # with the infos from the payload
         metadata_infos = {}
-        for info in self.metadata.pop('files', []):
+        for info in self.metadata.pop('inputs', []):
+            info['input'] = True
+            metadata_infos[info['name']] = info
+        for info in self.metadata.pop('outputs', []):
+            info['output'] = True
             metadata_infos[info['name']] = info
         self.metadata['files'] = []
         for info in self.saved:
