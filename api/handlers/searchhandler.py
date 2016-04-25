@@ -82,18 +82,17 @@ class SearchHandler(base.RequestHandler):
 
     def advanced_search(self, **kwargs):
         queries = self.request.json_body
+        # get the path query from the json_body
         path = queries.pop('path')
-        log.error(path)
-        log.error(queries)
-        min_score = self.get_param('min_score', 0.5)
-        # for cont_name in queries:
-        #    queries[cont_name] = es_query(queries[cont_name], cont_name, min_score)
-        # if the path starts with collections force the targets to exists within a collection
+        # if the path starts with collections and there is not query for collections
+        # add a match_all query
         if path.startswith('collections'):
             queries['collections'] = queries.get('collections', {"match_all": {}})
+        # generate extended target_paths from the input path
         target_paths = pathparser.PathParser(path).paths
-        log.error(target_paths)
+        # prepare a search from the list of queries and the target_paths
         search = queryprocessor.PreparedSearch(target_paths, queries)
+        # process the search and return its results
         return search.process_search()
 
 

@@ -13,6 +13,8 @@ a search for files in collections, sessions and acquisitions (belonging to a col
 "acquisitions" and "projects//acquisitions"
 a search for acquisitions (as incidentally every acquisition is included in a project)
 
+"projects//" returns every project, session, acquisition, file, note satisfying the queries
+
 """
 from collections import deque as Queue
 

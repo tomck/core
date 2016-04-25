@@ -17,20 +17,20 @@ def es_query(input_query, doc_type, min_score=0.5):
     }
     return query
 
-
-def merge_input_queries(must_queries=None, should_queries=None):
-    bool_part = {}
-    if must_queries is not None:
-        bool_part['must'] = must_queries
-    if should_queries is not None:
-        bool_part['should'] = should_queries
-    return {'bool': bool_part}
-
 def add_filter_from_list(query, field, list_ids):
     filtered = {'query': query}
     filtered['filter'] = {
         'terms': {
             field: list_ids
+        }
+    }
+    return {'filtered': filtered}
+
+def add_filter(query, field, value):
+    filtered = {'query': query}
+    filtered['filter'] = {
+        'term': {
+            field: value
         }
     }
     return {'filtered': filtered}

@@ -1,7 +1,7 @@
 import copy
 
 from . import (
-    es_query, add_filter_from_list, merge_input_queries
+    es_query, add_filter_from_list, add_filter
 )
 from .. import config
 
@@ -27,6 +27,8 @@ querygraph = {
     }
 }
 
+_min_score = 1
+
 class SearchContainer(object):
 
     def __init__(self, cont_name, query, targets):
@@ -39,7 +41,6 @@ class SearchContainer(object):
                 self.is_target = True
             else:
                 self.child_targets.add(t)
-        log.error(self.child_targets)
         self.results = None
 
     def get_results(self):
@@ -50,7 +51,7 @@ class SearchContainer(object):
             return self.results
 
     def _exec_query(self, query):
-        q = es_query(query, self.cont_name, 1)
+        q = es_query(query, self.cont_name, _min_score)
         results = config.es.search(
             index='scitran',
             body=q,
@@ -81,9 +82,6 @@ class SearchContainer(object):
             self.results = updated_results
         else:
             self.query = add_filter_from_list(self.query, filter_on_field, list_ids)
-            # should_queries = [{'match': {filter_on_field: _id}} for _id in list_ids]
-            # must_queries = None if self.query is None else [self.query]
-            # self.query =  merge_input_queries(self.query, es_filter)
             self.results = self._exec_query(self.query)
 
     def _to_set(self, value_or_list):
@@ -102,10 +100,8 @@ class SearchContainer(object):
         else:
             final_results = {}
         for t in self.child_targets:
-            log.error(self.cont_name)
             results = t.get_results(self.cont_name, self.results)
-            final_results[t.name] = results.values()
-        log.error(final_results)
+            final_results[t.name] = final_results.get(t.name, []) + results.values()
         return final_results
 
 
@@ -116,20 +112,16 @@ class TargetProperty(object):
         self.query = query
 
     def get_results(self, parent_name, parent_results):
-        if parent_results is None:
-            return self._exec_query(self.query)
-        parent_ids = parent_results.keys()
-
-        #should_queries = [{'match': {'container_id': pid}} for pid in parent_ids]
-        must_queries = [{'match':  {'container_name': parent_name}}]
-        if self.query is not None:
-            must_queries.append(self.query)
-        self.query = merge_input_queries(must_queries)
-        self.query = add_filter_from_list(self.query, 'container_id', parent_ids)
+        if self.query is None:
+            self.query = {"match_all": {}}
+        self.query = add_filter(self.query, 'container_name', parent_name)
+        if parent_results is not None:
+            parent_ids = parent_results.keys()
+            self.query = add_filter_from_list(self.query, 'container_id', parent_ids)
         return self._exec_query(self.query)
 
     def _exec_query(self, query):
-        q = es_query(query, self.name, 1)
+        q = es_query(query, self.name, _min_score)
         results = config.es.search(
             index='scitran',
             body=q,
@@ -145,17 +137,19 @@ class PreparedSearch(object):
     def __init__(self, target_paths, queries):
         self.queries = queries
         self.target_lists = {}
+        # explode each target_path into single search targets
         for path in target_paths:
             targets = self._get_targets(path)
             self._merge_into(targets, self.target_lists)
         self.search_containers = {}
-        log.error(self.target_lists)
+        # build the search containers with their targets
         for cont_name in self.containers:
             query = self.queries.get(cont_name)
             targets = self.target_lists.get(cont_name, [])
             self.search_containers[cont_name] = SearchContainer(cont_name, query, targets)
 
     def _get_targets(self, path):
+        """utility method to associates targets to containers"""
         path_parts = path.split('/')
         query = self.queries.get(path_parts[-1])
         if path_parts[-1] in ['files', 'notes']:
@@ -174,6 +168,8 @@ class PreparedSearch(object):
             destination[k] = destination.get(k, []) + elements
 
     def process_search(self):
+        # FORWARD PASS
+        # calculate the partial results for each container
         for cont_name in self.containers:
             container = self.search_containers[cont_name]
             partial_results = container.get_results()
@@ -181,12 +177,12 @@ class PreparedSearch(object):
                 self.search_containers[child_name].receive(
                     cont_name, partial_results
                 )
+        # BACKWARD PASS
+        # collect results and propagate back final results to parents
         results = {}
         for cont_name in self.containers[::-1]:
             container = self.search_containers[cont_name]
             new_results = container.collect()
-            if new_results:
-                log.error(cont_name + str(new_results))
             self._merge_into(new_results, results)
             for parent_name in querygraph[cont_name].get('parents', []):
                 self.search_containers[parent_name].receive(
