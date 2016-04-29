@@ -54,6 +54,7 @@ class SearchContainer(object):
         q = es_query(query, self.cont_name, _min_score)
         results = config.es.search(
             index='scitran',
+            doc_type=self.cont_name,
             body=q,
             size=10000
         )['hits']['hits']
@@ -129,6 +130,7 @@ class TargetProperty(object):
         q = es_query(query, self.name, _min_score)
         results = config.es.search(
             index='scitran',
+            doc_type=self.name,
             body=q,
             size=10000
         )['hits']['hits']
