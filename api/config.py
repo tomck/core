@@ -90,72 +90,72 @@ log.debug(str(db))
 
 es = elasticsearch.Elasticsearch([__config['persistent']['elasticsearch_host']])
 
-# validate the lists of json schemas
-schema_path = __config['persistent']['schema_path']
+# # validate the lists of json schemas
+# schema_path = __config['persistent']['schema_path']
 
-expected_mongo_schemas = set([
-    'acquisition.json',
-    'collection.json',
-    'container.json',
-    'file.json',
-    'group.json',
-    'note.json',
-    'permission.json',
-    'project.json',
-    'session.json',
-    'subject.json',
-    'user.json',
-    'avatars.json',
-    'tag.json'
-])
-expected_input_schemas = set([
-    'acquisition.json',
-    'collection.json',
-    'container.json',
-    'file.json',
-    'group.json',
-    'note.json',
-    'packfile.json',
-    'permission.json',
-    'project.json',
-    'session.json',
-    'subject.json',
-    'user.json',
-    'avatars.json',
-    'download.json',
-    'tag.json',
-    'enginemetadata.json',
-    'labelupload.json',
-    'uidupload.json'
-])
-mongo_schemas = set()
-input_schemas = set()
+# expected_mongo_schemas = set([
+#     'acquisition.json',
+#     'collection.json',
+#     'container.json',
+#     'file.json',
+#     'group.json',
+#     'note.json',
+#     'permission.json',
+#     'project.json',
+#     'session.json',
+#     'subject.json',
+#     'user.json',
+#     'avatars.json',
+#     'tag.json'
+# ])
+# expected_input_schemas = set([
+#     'acquisition.json',
+#     'collection.json',
+#     'container.json',
+#     'file.json',
+#     'group.json',
+#     'note.json',
+#     'packfile.json',
+#     'permission.json',
+#     'project.json',
+#     'session.json',
+#     'subject.json',
+#     'user.json',
+#     'avatars.json',
+#     'download.json',
+#     'tag.json',
+#     'enginemetadata.json',
+#     'labelupload.json',
+#     'uidupload.json'
+# ])
+# mongo_schemas = set()
+# input_schemas = set()
 
-# check that the lists of schemas are correct
-for schema_filepath in glob.glob(schema_path + '/mongo/*.json'):
-    schema_file = os.path.basename(schema_filepath)
-    mongo_schemas.add(schema_file)
-    with open(schema_filepath, 'rU') as f:
-        pass
+# # check that the lists of schemas are correct
+# for schema_filepath in glob.glob(schema_path + '/mongo/*.json'):
+#     schema_file = os.path.basename(schema_filepath)
+#     mongo_schemas.add(schema_file)
+#     with open(schema_filepath, 'rU') as f:
+#         pass
 
-assert mongo_schemas == expected_mongo_schemas, '{} is different from {}'.format(mongo_schemas, expected_mongo_schemas)
+# assert mongo_schemas == expected_mongo_schemas, '{} is different from {}'.format(mongo_schemas, expected_mongo_schemas)
 
-for schema_filepath in glob.glob(schema_path + '/input/*.json'):
-    schema_file = os.path.basename(schema_filepath)
-    input_schemas.add(schema_file)
-    with open(schema_filepath, 'rU') as f:
-        pass
+# for schema_filepath in glob.glob(schema_path + '/input/*.json'):
+#     schema_file = os.path.basename(schema_filepath)
+#     input_schemas.add(schema_file)
+#     with open(schema_filepath, 'rU') as f:
+#         pass
 
-assert input_schemas == expected_input_schemas, '{} is different from {}'.format(input_schemas, expected_input_schemas)
+# assert input_schemas == expected_input_schemas, '{} is different from {}'.format(input_schemas, expected_input_schemas)
 
-jinja_env = Environment(loader=PackageLoader('api', 'schemas')) 
+jinja_env = Environment(loader=PackageLoader('api', 'schemas'))
 
 def create_or_recreate_ttl_index(coll_name, index_name, ttl):
     if coll_name in db.collection_names():
         index_list = db[coll_name].index_information()
         if index_list:
             for index in index_list:
-                # search for index by given name 
+                # search for index by given name
                 # example: "timestamp_1": {"key": [["timestamp", 1]], ...}
                 if index_list[index]['key'][0][0] == index_name:
                     if index_list[index].get('expireAfterSeconds', None) != ttl:

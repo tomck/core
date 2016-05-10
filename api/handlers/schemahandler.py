@@ -15,7 +15,9 @@ class SchemaHandler(base.RequestHandler):
 
     def get(self, schema, **kwargs):
 
+    	schema_type = 'mongo'
+
         log.debug('Attempting to serve jinja templated json schema file {}'.format(schema))
 
         template = config.jinja_env.get_template(schema)
-        return json.loads(str(template.render()))
+        return json.loads(str(template.render(schema_type=schema_type)))
