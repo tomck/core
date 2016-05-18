@@ -23,12 +23,11 @@ class PathNotValidException(Exception):
 class PathParser:
 
     _search_graph = {
-        'collections': ['sessions', 'notes', 'files', 'analyses'],
+        'collections': ['sessions', 'notes', 'files'],
         'groups': ['projects'],
-        'projects': ['sessions', 'notes', 'files', 'analyses'],
-        'sessions': ['acquisitions', 'notes', 'files', 'analyses'],
-        'acquisitions': ['notes', 'files', 'analyses'],
-        'analyses': ['notes', 'files']
+        'projects': ['sessions', 'notes', 'files'],
+        'sessions': ['acquisitions', 'notes', 'files'],
+        'acquisitions': ['notes', 'files']
     }
 
     def __init__(self, path):
